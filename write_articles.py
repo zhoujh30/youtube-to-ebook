@@ -4,22 +4,34 @@ Takes raw video transcripts and turns them into polished, readable articles.
 """
 
 import os
-import anthropic
+import time
+from openai import OpenAI
 from dotenv import load_dotenv
 
 # Load your API key
 load_dotenv()
-ANTHROPIC_API_KEY = os.getenv("ANTHROPIC_API_KEY")
 
-# Create the Claude client
-client = anthropic.Anthropic(api_key=ANTHROPIC_API_KEY)
+# Create the Groq client (OpenAI-compatible)
+client = OpenAI(
+    api_key=os.getenv("GROQ_API_KEY"),
+    base_url="https://api.groq.com/openai/v1",
+)
+
+
+MAX_TRANSCRIPT_WORDS = 8000
 
 
 def write_article(video):
     """
     Use Claude to transform a video transcript into a magazine-style article.
     """
-    prompt = f"""You are a skilled magazine writer. Transform this YouTube video transcript into a well-written, engaging article.
+    transcript = video['transcript']
+    words = transcript.split()
+    if len(words) > MAX_TRANSCRIPT_WORDS:
+        transcript = " ".join(words[:MAX_TRANSCRIPT_WORDS])
+        print(f"  ℹ Transcript truncated to {MAX_TRANSCRIPT_WORDS} words (original: {len(words)})")
+
+    prompt = f"""You are a reporter for The Information, a premium technology and business publication known for source-driven, precise, and strategically framed journalism. Transform this YouTube transcript into an article in The Information's signature style.
 
 VIDEO TITLE: {video['title']}
 CHANNEL: {video['channel']}
@@ -29,35 +41,51 @@ VIDEO DESCRIPTION:
 {video['description']}
 
 TRANSCRIPT:
-{video['transcript']}
+{transcript}
 
 ---
 
-Remix this YouTube transcript into a magazine article. Guidelines:
-- Use the video title and description to correct any transcription errors, especially names of people, companies, or technical terms. The description often contains the correct spellings.
-- Start with an engaging headline (different from the video title)
-- The audience is a curious individual who is generally smart but not a specialist or expert in the area mentioned in the video
-- Highly engaging and readable. Wherever jargon or obscure references appear, explain them. Extremely well-written; think New Yorker or the Atlantic
-- Capture the key insights, especially contrarian viewpoints, memorable anecdotes, and surprising insights. Preserve key quotes (clean up filler words or transcription errors).
-- There's no fixed length requirement; it depends on the length of the original article as well as the insight density. Make your own judgment. This should be a satisfying long-read.
-- Do NOT include phrases like "In this video" - write it as a standalone article. Assume the reader has not watched the video and has zero context about it. This article is meant to be as a replacement, not complement, for watching the video.
+Write this as a The Information-style article. Requirements:
 
-Format the article in clean markdown."""
+STRUCTURE:
+- Start with a sharp headline (not the video title)
+- Opening paragraph: 2-3 sentences synthesizing the single most important insight — a standalone executive summary
+- Each subsequent paragraph must open with a **bold sentence** (using **double asterisks**) stating the key point. A reader scanning only the bold sentences should understand the full story.
 
-    try:
-        message = client.messages.create(
-            model="claude-sonnet-4-20250514",
-            max_tokens=8000,
-            messages=[
-                {"role": "user", "content": prompt}
-            ]
-        )
+VOICE & STYLE:
+- Business and strategic angle: what are the competitive, financial, or industry implications?
+- Cold precision: concrete facts and numbers over adjectives and hype
+- Source-driven language: attribute insights naturally ("According to...", "People familiar with the matter say...", "X has told associates...")
+- Correct transcription errors using the title and description (names of people, companies, products)
+- Preserve key quotes — clean up filler words but keep the substance
 
-        return message.content[0].text
+WHAT TO AVOID:
+- Never write "In this video", "the speaker says", or "in this conversation"
+- No filler phrases or hype adjectives
+- Do not summarize chronologically — synthesize thematically
 
-    except Exception as e:
-        print(f"  ⚠ Error generating article: {e}")
-        return None
+Format in clean markdown. Bold the first sentence of every paragraph with **double asterisks**."""
+
+    for attempt in range(3):
+        try:
+            response = client.chat.completions.create(
+                model="llama-3.3-70b-versatile",
+                messages=[{"role": "user", "content": prompt}]
+            )
+            return response.choices[0].message.content
+
+        except Exception as e:
+            err = str(e)
+            if "429" in err or "rate" in err.lower():
+                wait = 90 * (attempt + 1)
+                print(f"  ⏳ Rate limit hit, waiting {wait}s before retry ({attempt+1}/3)...")
+                time.sleep(wait)
+            else:
+                print(f"  ⚠ Error generating article: {e}")
+                return None
+
+    print(f"  ⚠ Failed after 3 retries")
+    return None
 
 
 def write_articles_for_videos(videos):
@@ -79,6 +107,7 @@ def write_articles_for_videos(videos):
                 "title": video["title"],
                 "channel": video["channel"],
                 "url": video["url"],
+                "video_id": video["video_id"],
                 "article": article
             })
             print(f"  ✓ Article generated!\n")

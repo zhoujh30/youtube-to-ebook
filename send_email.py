@@ -130,142 +130,215 @@ def create_epub(articles):
     return filepath
 
 
+def extract_guests_from_title(title):
+    """
+    Try to extract guest name(s) from a podcast video title.
+    Returns a string like "Rick Beato" or None.
+    """
+    import re
+    # Pattern: "First Last: topic ..." or "First Last – topic"
+    m = re.match(r'^([A-Z][a-z]+(?: [A-Z][a-z]+){1,2})\s*[:\-–]', title)
+    if m:
+        return m.group(1)
+    # Pattern: "topic with First Last" or "feat. First Last"
+    m = re.search(r'\b(?:with|ft\.?|feat\.?)\s+([A-Z][a-z]+(?: [A-Z][a-z]+){1,2})', title)
+    if m:
+        return m.group(1)
+    # Pattern: "topic – First Last" at end
+    m = re.search(r'[–—]\s*([A-Z][a-z]+(?: [A-Z][a-z]+){1,2})\s*$', title)
+    if m:
+        return m.group(1)
+    return None
+
+
 def create_newsletter_html(articles):
     """
-    Create a beautifully formatted HTML newsletter from the articles.
-    Uses larger fonts for better readability.
+    Create a The Information-style newsletter.
+    Light background, black text. Bold sentences stay black but heavier weight.
     """
     today = datetime.now().strftime("%B %d, %Y")
 
-    html = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <style>
-            body {{
-                font-family: Georgia, serif;
-                font-size: 18px;
-                max-width: 700px;
-                margin: 0 auto;
-                padding: 20px;
-                background-color: #f9f9f9;
-                color: #333;
-            }}
-            .header {{
-                text-align: center;
-                padding: 30px 0;
-                border-bottom: 3px solid #333;
-                margin-bottom: 30px;
-            }}
-            .header h1 {{
-                margin: 0;
-                font-size: 32px;
-                letter-spacing: 2px;
-            }}
-            .header p {{
-                color: #666;
-                font-size: 18px;
-                margin: 10px 0 0 0;
-            }}
-            .article {{
-                background: white;
-                padding: 30px;
-                margin-bottom: 30px;
-                border-radius: 5px;
-                box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-            }}
-            .article-intro {{
-                background: #f8f8f8;
-                padding: 15px 20px;
-                border-left: 4px solid #666;
-                margin-bottom: 25px;
-                font-size: 16px;
-                color: #555;
-                line-height: 1.6;
-            }}
-            .article-content {{
-                font-size: 18px;
-                line-height: 1.9;
-            }}
-            .article-content h1 {{
-                color: #222;
-                font-size: 26px;
-                margin-top: 25px;
-            }}
-            .article-content h2 {{
-                color: #222;
-                font-size: 22px;
-                margin-top: 25px;
-            }}
-            .article-content h3 {{
-                color: #222;
-                font-size: 20px;
-                margin-top: 25px;
-            }}
-            .article-content p {{
-                font-size: 18px;
-                margin-bottom: 1em;
-            }}
-            .watch-link {{
-                display: inline-block;
-                margin-top: 20px;
-                padding: 12px 24px;
-                background: #ff0000;
-                color: white !important;
-                text-decoration: none;
-                border-radius: 5px;
-                font-size: 16px;
-            }}
-            .footer {{
-                text-align: center;
-                color: #999;
-                font-size: 14px;
-                padding: 20px;
-            }}
-            .epub-note {{
-                text-align: center;
-                background: #e8f4e8;
-                padding: 15px;
-                border-radius: 5px;
-                margin-bottom: 30px;
-                font-size: 16px;
-            }}
-        </style>
-    </head>
-    <body>
-        <div class="header">
-            <h1>YOUR YOUTUBE DIGEST</h1>
-            <p>{today}</p>
-        </div>
-        <div class="epub-note">
-            📚 EPUB ebook attached - open on your phone's ebook reader!
-        </div>
-    """
+    html = f"""<!DOCTYPE html>
+<html>
+<head>
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<style>
+  * {{ box-sizing: border-box; margin: 0; padding: 0; }}
+  body {{
+    font-family: Georgia, 'Times New Roman', serif;
+    font-size: 20px;
+    background: #fff;
+    color: #292929;
+    -webkit-font-smoothing: antialiased;
+  }}
+  .wrapper {{
+    max-width: 680px;
+    margin: 0 auto;
+    padding: 40px 24px;
+  }}
+  .header {{
+    padding-bottom: 20px;
+    border-bottom: 1px solid #e0e0e0;
+    margin-bottom: 8px;
+  }}
+  .header-label {{
+    font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+    font-size: 11px;
+    letter-spacing: 1.5px;
+    color: #aaa;
+    text-transform: uppercase;
+    margin-bottom: 8px;
+  }}
+  .header h1 {{
+    font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+    font-size: 15px;
+    font-weight: 700;
+    letter-spacing: 0;
+    color: #292929;
+    margin-bottom: 6px;
+  }}
+  .header-date {{
+    font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+    font-size: 13px;
+    color: #aaa;
+  }}
+  .article {{
+    padding: 40px 0;
+    border-bottom: 1px solid #e8e8e8;
+  }}
+  .article-byline {{
+    font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+    font-size: 14px;
+    color: #757575;
+    margin-bottom: 28px;
+    line-height: 1.5;
+  }}
+  .article-byline .channel {{
+    font-weight: 600;
+    color: #292929;
+  }}
+  .article-content {{
+    font-size: 20px;
+    line-height: 1.8;
+    color: #292929;
+    letter-spacing: -0.003em;
+  }}
+  .article-content h1 {{
+    font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+    font-size: 36px;
+    font-weight: 700;
+    line-height: 1.2;
+    letter-spacing: -0.5px;
+    margin-bottom: 20px;
+    color: #111;
+  }}
+  .article-content h2 {{
+    font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+    font-size: 22px;
+    font-weight: 700;
+    margin: 36px 0 12px;
+    color: #111;
+  }}
+  .article-content h3 {{
+    font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+    font-size: 18px;
+    font-weight: 700;
+    margin: 28px 0 10px;
+    color: #111;
+  }}
+  .article-content p {{
+    margin-bottom: 20px;
+  }}
+  .article-content strong {{
+    font-weight: 700;
+    color: #111;
+  }}
+  .article-content em {{
+    font-style: italic;
+  }}
+  .article-content blockquote {{
+    border-left: 3px solid #292929;
+    margin: 24px 0;
+    padding: 4px 0 4px 20px;
+    color: #555;
+    font-style: italic;
+  }}
+  .article-content a {{
+    color: #292929;
+    text-decoration: underline;
+  }}
+  .article-thumb {{
+    width: 100%;
+    max-height: 340px;
+    object-fit: cover;
+    display: block;
+    margin-bottom: 24px;
+    border-radius: 3px;
+  }}
+  .watch-link {{
+    font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+    display: inline-block;
+    margin-top: 20px;
+    font-size: 13px;
+    font-weight: 600;
+    color: #757575;
+    text-decoration: none;
+    border-bottom: 1px solid #ccc;
+    padding-bottom: 2px;
+    letter-spacing: 0.2px;
+  }}
+  .footer {{
+    font-family: -apple-system, 'Helvetica Neue', Arial, sans-serif;
+    text-align: center;
+    color: #ccc;
+    font-size: 12px;
+    padding: 32px 0 8px;
+    letter-spacing: 0.5px;
+  }}
+  @media (max-width: 520px) {{
+    .wrapper {{ padding: 24px 18px; }}
+    .article-content {{ font-size: 18px; }}
+    .article-content h1 {{ font-size: 28px; }}
+    .article-content h2 {{ font-size: 20px; }}
+  }}
+</style>
+</head>
+<body>
+<div class="wrapper">
+  <div class="header">
+    <div class="header-label">Tech / AI</div>
+    <h1>Daily Digest</h1>
+    <div class="header-date">{today}</div>
+  </div>
+"""
 
     for article in articles:
-        # Convert markdown article to HTML
         article_html = markdown.markdown(article['article'])
+        guest = extract_guests_from_title(article['title'])
+        if guest:
+            authors = f"{article['channel']} &nbsp;·&nbsp; {guest}"
+        else:
+            authors = article['channel']
+        video_id = article.get('video_id', '')
+        thumb_url = f"https://img.youtube.com/vi/{video_id}/hqdefault.jpg" if video_id else ""
 
-        html += f"""
-        <div class="article">
-            <div class="article-intro">
-                <em>This article is based on the video "<strong>{article['title']}</strong>" from the YouTube channel <strong>{article['channel']}</strong>.</em>
-            </div>
-            <div class="article-content">
-                {article_html}
-            </div>
-            <a href="{article['url']}" class="watch-link">Watch the original video</a>
-        </div>
-        """
+        html += f"""  <div class="article">
+    <div class="article-byline">
+      <span class="channel">{authors}</span>
+    </div>
+    {'<img src="' + thumb_url + '" alt="thumbnail" class="article-thumb">' if thumb_url else ''}
+    <div class="article-content">
+      {article_html}
+    </div>
+    <a href="{article['url']}" class="watch-link">Watch original &rarr;</a>
+  </div>
+"""
 
-    html += """
-        <div class="footer">
-            Generated by YouTube Newsletter Bot
-        </div>
-    </body>
-    </html>
-    """
-
+    html += """  <div class="footer">Daily Digest &mdash; Generated automatically</div>
+</div>
+</body>
+</html>
+"""
     return html
 
 
