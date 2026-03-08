@@ -11,10 +11,10 @@ from dotenv import load_dotenv
 # Load your API key
 load_dotenv()
 
-# Create the Groq client (OpenAI-compatible)
+# Create the Gemini client (OpenAI-compatible endpoint)
 client = OpenAI(
-    api_key=os.getenv("GROQ_API_KEY"),
-    base_url="https://api.groq.com/openai/v1",
+    api_key=os.getenv("GEMINI_API_KEY"),
+    base_url="https://generativelanguage.googleapis.com/v1beta/openai/",
 )
 
 
@@ -69,7 +69,7 @@ Format in clean markdown. Bold the first sentence of every paragraph with **doub
     for attempt in range(3):
         try:
             response = client.chat.completions.create(
-                model="llama-3.3-70b-versatile",
+                model="gemini-3-flash-preview",
                 messages=[{"role": "user", "content": prompt}]
             )
             return response.choices[0].message.content
