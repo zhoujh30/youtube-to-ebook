@@ -1,126 +1,148 @@
-# YouTube to Ebook
+# YouTube to Ebook — Daily AI Digest
 
-Transform YouTube videos from your favorite channels into beautifully formatted EPUB ebooks.
-
-## Features
-
-- Fetches latest videos from YouTube channels (automatically filters out Shorts)
-- Extracts transcripts from videos
-- Uses Claude AI to transform transcripts into polished magazine-style articles
-- Generates EPUB ebooks readable on any device
-- Optional: Email delivery with ebook attachment
-- Optional: Web dashboard for easy management
-
-## Quick Start
-
-1. **Clone and install:**
-   ```bash
-   git clone https://github.com/YOUR_USERNAME/youtube-to-ebook.git
-   cd youtube-to-ebook
-   pip install -r requirements.txt
-   ```
-
-2. **Set up API keys:**
-   ```bash
-   cp .env.example .env
-   # Edit .env with your keys
-   ```
-
-3. **Add your channels:**
-   ```bash
-   # Edit channels.txt with YouTube channel handles
-   @mkbhd
-   @veritasium
-   @3blue1brown
-   ```
-
-4. **Generate your ebook:**
-   ```bash
-   python main.py
-   ```
-
-## Getting API Keys
-
-### YouTube Data API (Free)
-1. Go to [Google Cloud Console](https://console.cloud.google.com/)
-2. Create a new project
-3. Enable "YouTube Data API v3"
-4. Create credentials → API Key
-5. Copy to `.env`
-
-### Anthropic API
-1. Go to [Anthropic Console](https://console.anthropic.com/)
-2. Create an API key
-3. Copy to `.env`
-
-## Web Dashboard
-
-Launch a friendly web interface:
-```bash
-pip install streamlit
-python -m streamlit run dashboard.py
-```
-
-## Automation (Mac)
-
-Run automatically every week:
-```bash
-# Copy the plist to LaunchAgents
-cp com.youtube.newsletter.plist ~/Library/LaunchAgents/
-
-# Load it
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.youtube.newsletter.plist
-```
-
-## Troubleshooting
-
-### "ModuleNotFoundError" when running automation
-
-Your Mac may have multiple Python installations. The automation scripts use `python3`, but your packages might be installed in a different Python.
-
-**Fix:** Find your Python path and update the scripts:
-```bash
-# Find where your Python is
-which python3
-
-# Update run_newsletter.sh and dashboard.py with the full path
-# Example: /Library/Frameworks/Python.framework/Versions/3.11/bin/python3
-```
-
-## Known Issues & Solutions
-
-This project documents several YouTube API quirks:
-
-| Problem | Solution |
-|---------|----------|
-| Shorts not filtered by duration | Check `/shorts/` URL pattern |
-| Search API not chronological | Use uploads playlist instead |
-| Transcript API syntax changed | Use instance method `ytt_api.fetch()` |
-| Cloud servers blocked | Run locally, not GitHub Actions |
-| Names misspelled in transcripts | Include video description in Claude context |
-| Articles truncated mid-sentence | Increase `max_tokens` in write_articles.py |
-
-See [SKILL.md](SKILL.md) for detailed explanations.
-
-## Project Structure
-
-```
-├── main.py              # Run the full pipeline
-├── get_videos.py        # Fetch videos from YouTube
-├── get_transcripts.py   # Extract video transcripts
-├── write_articles.py    # Transform to articles with Claude
-├── send_email.py        # Create EPUB & send email
-├── dashboard.py         # Streamlit web dashboard
-├── video_tracker.py     # Track processed videos
-├── channels.txt         # Your channel list
-├── .env                 # Your API keys (not committed)
-└── newsletters/         # Archive of generated ebooks
-```
-
-## License
-
-MIT - Use freely, modify as needed.
+> **This is a fork of [zarazhangrui/youtube-to-ebook](https://github.com/zarazhangrui/youtube-to-ebook).**
+> The original project is a great foundation. This fork re-orients it toward a specific use case: a zero-cost, fully automated daily digest of AI-related YouTube content, delivered as a newsletter to your inbox every morning.
 
 ---
 
-Built with Claude AI
+## What this does
+
+Monitors a curated list of AI/tech YouTube channels every day. For any new video that passes quality filters, it extracts the transcript, rewrites it as a structured article, and emails you a newsletter — no manual work required.
+
+---
+
+## Changes from the original
+
+### 1. Fully free API stack
+
+The original uses paid APIs (Anthropic Claude for writing, Supadata for transcripts). This fork replaces both with free alternatives:
+
+- **Groq API** (free tier, llama-3.3-70b-versatile) instead of Anthropic Claude — Groq's free tier is generous enough for a personal daily digest
+- **youtube-transcript-api** (open source Python library, no key needed) instead of Supadata — pulls transcripts directly from YouTube's own subtitles
+
+The only API that still requires a key is the YouTube Data API v3, which has a free daily quota of 10,000 units — more than enough for 14 channels.
+
+### 2. Daily cadence instead of weekly
+
+Weekly digests tend to pile up and go unread. This fork runs every morning at 9 AM (London time) via GitHub Actions — no computer needed, fully cloud-based. If there's nothing new that day, no email is sent.
+
+### 3. Content filter: AI-related videos only
+
+Not every video from a channel is worth processing. A pre-filter checks each video's title against a curated list of AI keywords (model names, researchers, concepts) before fetching transcripts or calling any AI API. This saves both quota and cost, and keeps the digest focused.
+
+The filter is title-only — checking descriptions caused false positives from sponsor text (e.g. "ML internship" in an unrelated video's sponsor mention).
+
+### 4. The Information–style articles
+
+The original prompt produces a general summary. This fork rewrites the prompt to produce articles in the style of *The Information* — a premium tech business publication:
+
+- Opens with a 2–3 sentence executive summary of the single most important insight
+- Each paragraph's first sentence is bolded, so the key points are scannable
+- Business and strategic framing: competitive implications, not just "what was said"
+- Attribute insights naturally, clean up transcript filler words, correct misspelled names using the video description
+
+### 5. Redesigned email newsletter
+
+The original email is functional but plain. This fork redesigns it as a clean, readable newsletter:
+
+- Georgia serif font at 20px — optimised for reading, not scanning
+- Light background, black text — no dark mode that strains reading
+- YouTube thumbnail pulled automatically (free CDN, no API call)
+- Guest/speaker name extracted from video title and shown as a byline
+- Mobile-responsive layout
+
+### 6. Stricter video quality filters
+
+To keep the digest high-signal:
+
+- Duration > 20 minutes (filters out shorts, quick takes, clips)
+- View count > 1,000 (new videos have a grace period — this is a light filter)
+- Must have captions available (required for transcript extraction)
+
+### 7. Curated channel list
+
+14 channels covering AI research, industry news, startup/VC perspective, and long-form interviews:
+
+```
+@DwarkeshPatel, @AndrejKarpathy, @lexfridman, @AIDailyBrief,
+@LennysPodcast, @aiDotEngineer, @OpenAI, @ycombinator,
+@GoogleDeepMind, @MicrosoftResearch, @a16z, @GarryTan,
+@20VC, @MachineLearningStreetTalk
+```
+
+Edit `channels.txt` to add or remove channels.
+
+---
+
+## Setup
+
+### 1. Fork and clone
+
+```bash
+git clone https://github.com/YOUR_USERNAME/youtube-to-ebook.git
+cd youtube-to-ebook
+pip install -r requirements.txt
+```
+
+### 2. Get API keys (all free)
+
+**YouTube Data API v3**
+1. [Google Cloud Console](https://console.cloud.google.com/) → Create project
+2. Enable "YouTube Data API v3" → Create API Key
+
+**Groq API**
+1. [console.groq.com](https://console.groq.com) → Sign up → Create API Key
+2. Free tier: sufficient for personal daily use
+
+**Gmail App Password**
+1. Enable 2FA on your Google account
+2. Google Account → Security → App Passwords → Generate
+
+### 3. Configure `.env`
+
+```bash
+cp .env.example .env
+```
+
+```
+YOUTUBE_API_KEY=your_key
+GROQ_API_KEY=your_key
+GMAIL_ADDRESS=you@gmail.com
+GMAIL_APP_PASSWORD=xxxx xxxx xxxx xxxx
+```
+
+### 4. Set up GitHub Actions (automated daily run)
+
+1. Push this repo to your GitHub
+2. Go to Settings → Secrets and variables → Actions
+3. Add the 4 secrets above (`YOUTUBE_API_KEY`, `GROQ_API_KEY`, `GMAIL_ADDRESS`, `GMAIL_APP_PASSWORD`)
+4. The workflow runs automatically at 9 AM UTC (London time) every day
+5. To trigger manually: Actions tab → "Daily YouTube Digest" → Run workflow
+
+### 5. Run locally (optional)
+
+```bash
+python main.py
+```
+
+---
+
+## Project structure
+
+```
+├── main.py              # Pipeline orchestrator + AI content filter
+├── get_videos.py        # Fetch and quality-filter recent videos
+├── get_transcripts.py   # Extract transcripts via youtube-transcript-api
+├── write_articles.py    # Rewrite transcripts as articles via Groq
+├── send_email.py        # Generate HTML newsletter + EPUB, send via Gmail
+├── video_tracker.py     # Deduplication — avoids re-sending processed videos
+├── channels.txt         # Channel list (one handle per line)
+├── .env                 # API keys (not committed)
+└── newsletters/         # Local archive of sent newsletters
+```
+
+---
+
+## License
+
+The original project does not include a license file. This fork is shared for personal and educational use. If you build on this, please credit both [zarazhangrui](https://github.com/zarazhangrui/youtube-to-ebook) and this fork.
