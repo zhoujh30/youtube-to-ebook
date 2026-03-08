@@ -92,7 +92,7 @@ def write_articles_for_videos(videos):
     """
     Generate articles for all videos with transcripts.
     """
-    print("\nGenerating articles with Claude AI...\n")
+    print("\nGenerating articles with Gemini AI...\n")
     print("=" * 60)
 
     articles = []

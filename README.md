@@ -17,7 +17,7 @@ Monitors a curated list of AI/tech YouTube channels every day. For any new video
 
 The original uses paid APIs (Anthropic Claude for writing, Supadata for transcripts). This fork replaces both with free alternatives:
 
-- **Groq API** (free tier, llama-3.3-70b-versatile) instead of Anthropic Claude — Groq's free tier is generous enough for a personal daily digest
+- **Gemini 3 Flash** instead of Anthropic Claude — free tier, better writing quality than the previous Groq/llama setup
 - **youtube-transcript-api** (open source Python library, no key needed) instead of Supadata — pulls transcripts directly from YouTube's own subtitles
 
 The only API that still requires a key is the YouTube Data API v3, which has a free daily quota of 10,000 units — more than enough for 14 channels.
@@ -26,11 +26,9 @@ The only API that still requires a key is the YouTube Data API v3, which has a f
 
 Weekly digests tend to pile up and go unread. This fork runs every morning at 9 AM (London time) via GitHub Actions — no computer needed, fully cloud-based. If there's nothing new that day, no email is sent.
 
-### 3. Content filter: AI-related videos only
+### 3. No content pre-filter (all qualifying videos processed)
 
-Not every video from a channel is worth processing. A pre-filter checks each video's title against a curated list of AI keywords (model names, researchers, concepts) before fetching transcripts or calling any AI API. This saves both quota and cost, and keeps the digest focused.
-
-The filter is title-only — checking descriptions caused false positives from sponsor text (e.g. "ML internship" in an unrelated video's sponsor mention).
+All videos that pass the quality filters (duration, views, captions) are processed into articles. There is intentionally no keyword pre-filter — title-only filtering misses too many relevant videos (e.g. Lex Fridman interviewing an AI researcher where the title is just the person's name), and description-based filtering causes false positives from sponsor text. Channel curation is the main signal for relevance.
 
 ### 4. The Information–style articles
 
@@ -90,8 +88,8 @@ pip install -r requirements.txt
 1. [Google Cloud Console](https://console.cloud.google.com/) → Create project
 2. Enable "YouTube Data API v3" → Create API Key
 
-**Groq API**
-1. [console.groq.com](https://console.groq.com) → Sign up → Create API Key
+**Gemini API**
+1. [aistudio.google.com](https://aistudio.google.com) → Sign in → Get API Key
 2. Free tier: sufficient for personal daily use
 
 **Gmail App Password**
@@ -106,7 +104,7 @@ cp .env.example .env
 
 ```
 YOUTUBE_API_KEY=your_key
-GROQ_API_KEY=your_key
+GEMINI_API_KEY=your_key
 GMAIL_ADDRESS=you@gmail.com
 GMAIL_APP_PASSWORD=xxxx xxxx xxxx xxxx
 ```
@@ -115,7 +113,7 @@ GMAIL_APP_PASSWORD=xxxx xxxx xxxx xxxx
 
 1. Push this repo to your GitHub
 2. Go to Settings → Secrets and variables → Actions
-3. Add the 4 secrets above (`YOUTUBE_API_KEY`, `GROQ_API_KEY`, `GMAIL_ADDRESS`, `GMAIL_APP_PASSWORD`)
+3. Add the 4 secrets above (`YOUTUBE_API_KEY`, `GEMINI_API_KEY`, `GMAIL_ADDRESS`, `GMAIL_APP_PASSWORD`)
 4. The workflow runs automatically at 9 AM UTC (London time) every day
 5. To trigger manually: Actions tab → "Daily YouTube Digest" → Run workflow
 
